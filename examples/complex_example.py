@@ -35,11 +35,11 @@ def optimizer(function_to_minimize, init_params, bounds: list[list, list]):  # m
 
 '''Creation of all needed objects: Model and Data instances'''
 model = Model(compartments_names=compartments_names, increments_function=simplified_sis)
-data = Data(title="My Data", time_points=time_points, **data_points)
+data = Data(time_points=time_points, **data_points, title="My Data")
 generated_data = model.generate_compartment(name='I',
                                             time_points=range(20),
                                             init_compartments_state=[99, 1],
-                                            parameters_values=[2.01, 2, ],
+                                            parameters_values=[2.01, 2],
                                             randomizer=randomizer)
 
 '''Fitting process and evaluation of results'''
@@ -53,4 +53,6 @@ result = model.fit(init_compartments_state=[[99, 1], [99, 1]],
 print('Optimal parameters:', result.parameters)
 print('Observed values:', result.observed_values)
 print('Predicted values:', result.predicted_values)
-result.plot(title='My Data 2')  # todo title
+result.plot(compartments_names=['S', 'I'], title='Plot title', center_text=f'R2: {result.r2:.2f}')
+result.stability_histogram(sigma=0.1, func='residuals', n_sim=1000, n_bins=50)
+result.heatmap(parameter_x='beta', parameter_y='gamma', sigma_x=0.1, sigma_y=0.1, func='r2', n_sim=1000)

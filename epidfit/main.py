@@ -66,13 +66,13 @@ class Model:
             if randomizer:
                 parameters = [randomizer(self.parameters_names[i], parameters[i]) for i in range(len(parameters))]
             state.change(t, parameters)
-            results.append(list(state.compartments_state))
+            results.append(np.array(state.compartments_state))
         results = np.where(np.isnan(results), 0, results)
         return Result(self, parameters, time_points, np.array(results).T)
 
     def generate_compartment(self, name, time_points, init_compartments_state, parameters_values, randomizer=None):
         result = self.generate(time_points, init_compartments_state, parameters_values, randomizer=randomizer)
-        return Data(time_points, **{name: result.generated_compartments[self.compartments_names.index(name)]})
+        return Data(time_points, **{name: result.compartments_values[self.compartments_names.index(name)]})
 
     def evaluate(self, results, y_observed, compartment='I'):
         y_predicted = results[self.compartments_names.index(compartment)]
@@ -116,7 +116,7 @@ class Model:
         assert fit_compartment in self.compartments_names, 'fit_compartment should be in compartments_names'
         if not isinstance(data, list):
             data = [data]
-        if not isinstance(init_compartments_state[0], list):  # todo for data
+        if not isinstance(init_compartments_state[0], list):
             init_compartments_state = [init_compartments_state]
         if len(data) > 1 and len(init_compartments_state) == 1:
             init_compartments_state = list(*init_compartments_state) * len(data)

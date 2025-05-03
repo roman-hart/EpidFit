@@ -5,15 +5,14 @@ from plotly.subplots import make_subplots
 
 
 class Result:
-    def __init__(self, model: "Model", parameters_values: list[float], time_points: list[float],
-                 compartments_values: list[list]):
-        self.model, self.parameters, self.time_points, self.generated_compartments = model, parameters_values, time_points, compartments_values
+    def __init__(self, model, parameters_values: list[float], time_points: list[float], compartments_values: np.array):
+        self.model, self.parameters, self.time_points, self.compartments_values = model, parameters_values, time_points, compartments_values
         self.n, self.k = len(time_points), len(parameters_values)
-        self.target_compartment_name, self.observed_values, self.predicted_values, self.subscription = None, None, None, ''
+        self.target_compartment_name, self.observed_values, self.predicted_values, self.data_title = None, None, None, ''
 
-    def set_target(self, name: str, values: list, subscription=''):
-        self.target_compartment_name, self.observed_values, self.subscription = name, values, subscription
-        self.predicted_values = self.generated_compartments[self.model.compartments_names.index(self.target_compartment_name)]
+    def set_target(self, name: str, values: list, data_title=''):
+        self.target_compartment_name, self.observed_values, self.data_title = name, values, data_title
+        self.predicted_values = self.compartments_values[self.model.compartments_names.index(self.target_compartment_name)]
 
     @property
     def residuals(self):
@@ -60,7 +59,7 @@ class Result:
 
     @property
     def init_state(self):
-        return self.generated_compartments.T[0]
+        return self.compartments_values.T[0]
 
     def plot(self, compartments_names: list[str] = None, center_text: str = None, title=None, xtitle='years',
              ytitle='cases per 100000 people'):
@@ -71,7 +70,7 @@ class Result:
         x = self.time_points
         base_y, base_color = None, 'blue'
         for i, name in enumerate(compartments_names):
-            y = self.generated_compartments[self.model.compartments_names.index(name)]
+            y = self.compartments_values[self.model.compartments_names.index(name)]
             line_dict = dict(color=base_color, width=2) if name == self.target_compartment_name else dict(width=2)
             text = f'compartment {name}'
             if i == 0:
@@ -88,7 +87,7 @@ class Result:
             fig.add_annotation(x=(min(x) + max(x)) / 2, y=(min(base_y) + max(base_y)) / 2, text=center_text,
                                font=dict(family="Arial, sans-serif", size=16, color='red'), showarrow=False)
         if title is None:
-            title = self.subscription
+            title = self.data_title
         fig.update_layout(title=title, xaxis_title=xtitle, yaxis_title=ytitle, legend_title_text='', height=300)
         fig.update_layout(margin=dict(l=1, r=1, t=33, b=1))
         fig.show()
@@ -105,7 +104,7 @@ class Result:
             ).__getattr__(self.target_compartment_name)
             results.append(eval(f"self.{func}"))  # Use the dynamically set function
         self.predicted_values = original_predicted_values  # Restore original predicted values
-        title = f"Stability Analysis of {func} for {self.subscription}" if self.subscription else f"Stability Analysis of {func}"
+        title = f"Stability Analysis of {func} for {self.data_title}" if self.data_title else f"Stability Analysis of {func}"
         fig = px.histogram(np.array(results), nbins=n_bins, title=title, histnorm='probability')
         fig.update_layout(xaxis_title=f"Values of {func}", yaxis_title="Relative Frequency")
         # Add the vertical line
@@ -167,8 +166,8 @@ class Result:
                      "Y": np.tile(y_values, len(x_values)),  # Expand y-values
                      "Func_Value": func_values.flatten()}  # Flatten 2D array to 1D
         title = f"Heatmap of {func} over {parameter_x} & {parameter_y}"
-        if self.subscription:
-            title += f" for {self.subscription}"
+        if self.data_title:
+            title += f" for {self.data_title}"
         fig = px.density_heatmap(
             data_dict, x="X", y="Y", z="Func_Value",
             histfunc="avg",  # Compute mean instead of sum
