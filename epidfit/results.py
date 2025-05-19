@@ -62,7 +62,7 @@ class Result:
         return self.compartments_values.T[0]
 
     def plot(self, compartments_names: list[str] = None, center_text: str = None, title=None, xtitle='years',
-             ytitle='cases per 100000 people'):
+             ytitle='cases per 100000 people', max_y=None, showlegend=True, show=True):
         targeted = self.observed_values is not None
         if compartments_names is None:
             compartments_names = [self.target_compartment_name] if targeted else [self.model.compartments_names]
@@ -84,15 +84,18 @@ class Result:
             fig.add_trace(go.Scatter(x=x, y=self.observed_values, mode='markers',
                                      marker=dict(color=base_color, size=7), name=f'observed {self.target_compartment_name}'))
         if center_text:
-            fig.add_annotation(x=(min(x) + max(x)) / 2, y=(min(base_y) + max(base_y)) / 2, text=center_text,
+            y = max_y/2 if max_y else (min(base_y) + max(base_y)) / 2
+            fig.add_annotation(x=(min(x) + max(x)) / 2, y=y, text=center_text,
                                font=dict(family="Arial, sans-serif", size=16, color='red'), showarrow=False)
         if title is None:
             title = self.data_title
-        fig.update_layout(title=title, xaxis_title=xtitle, yaxis_title=ytitle, legend_title_text='', height=300)
-        fig.update_layout(margin=dict(l=1, r=1, t=33, b=1))
-        fig.show()
+        fig.update_layout(margin=dict(l=1, r=1, t=33, b=1), yaxis_range=[0, max_y] if max_y else None,
+                          title=title, xaxis_title=xtitle, yaxis_title=ytitle, legend_title_text='', height=300,
+                          showlegend=showlegend)
+        fig.show() if show else None
+        return fig
 
-    def stability_histogram(self, sigma=0.1, func='residuals', n_sim=1000, n_bins=100):
+    def stability_histogram(self, sigma=0.1, func='residuals', n_sim=1000, n_bins=100, show=True):
         assert hasattr(self, func), f"'{type(self).__name__}' object has no attribute '{func}'"
         results = []
         original_predicted_values = self.predicted_values.copy()
@@ -129,9 +132,10 @@ class Result:
         )
         fig.update_traces(name="Distribution", selector=dict(type='histogram'))
         fig.update_layout(margin=dict(l=1, r=1, t=33, b=1), height=300, legend_title_text="", showlegend=True)
-        fig.show()
+        fig.show() if show else None
+        return fig
 
-    def heatmap(self, parameter_x: str, parameter_y: str, sigma_x=0.1, sigma_y=0.1, func='residuals', n_sim=1000):
+    def heatmap(self, parameter_x: str, parameter_y: str, sigma_x=0.1, sigma_y=0.1, func='residuals', n_sim=1000, show=True):
         """
         Generates a heatmap by systematically varying two parameters (default function: residuals).
         """
@@ -175,12 +179,13 @@ class Result:
             labels={"X": parameter_x, "Y": parameter_y, "Func_Value": func}
         )
         fig.update_layout(margin=dict(l=1, r=1, t=33, b=1))
-        fig.show()
+        fig.show() if show else None
+        return fig
 
 
 class ResultsList(list):
-    def __init__(self, list_of_results: list["Result"]):
-        super().__init__(list_of_results)
+    def __init__(self, list_of_results: list["Result"] = None):
+        super().__init__(list_of_results) if list_of_results else super().__init__()
 
     @property
     def weights(self):

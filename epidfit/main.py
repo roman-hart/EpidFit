@@ -39,7 +39,7 @@ class State:
 
 class Data:
     """  """
-    def __init__(self, time_points: list, title: str = 'MyData', **kwargs):
+    def __init__(self, title: str, time_points: list, **kwargs):
         self.title, self.time_points = title, np.array(time_points)
         for key, value in kwargs.items():
             if '__iter__' in dir(value):
@@ -47,6 +47,7 @@ class Data:
             setattr(self, key, value)
 
     def __getattr__(self, item):  # to calm linter
+        assert item in self.__dict__, f'{item} is not in {self.__dict__}'
         return getattr(self, item)
 
 
@@ -58,21 +59,25 @@ class Model:
         self.parameters_names = list(inspect.signature(increments_function).parameters)[1:]
         self.k = len(self.parameters_names)
 
-    def generate(self, time_points, compartments_state, parameters, data=None, randomizer=None):
+    def generate(self, time_points, compartments_state, parameters, data=None, randomizer=None, randomize_once=True):
         comp_d = {k: v for k, v in zip(self.compartments_names, compartments_state)}
         state = State(time_points[0], self.compartments_names, self.increments_function, data=data, **comp_d)
         results = []
+        if randomizer and randomize_once:
+            parameters = [randomizer(self.parameters_names[i], parameters[i]) for i in range(self.k)]
         for t in time_points:
-            if randomizer:
-                parameters = [randomizer(self.parameters_names[i], parameters[i]) for i in range(len(parameters))]
+            if randomizer and not randomize_once:
+                parameters = [randomizer(self.parameters_names[i], parameters[i]) for i in range(self.k)]
             state.change(t, parameters)
             results.append(np.array(state.compartments_state))
         results = np.where(np.isnan(results), 0, results)
         return Result(self, parameters, time_points, np.array(results).T)
 
-    def generate_compartment(self, name, time_points, init_compartments_state, parameters_values, randomizer=None):
-        result = self.generate(time_points, init_compartments_state, parameters_values, randomizer=randomizer)
-        return Data(time_points, **{name: result.compartments_values[self.compartments_names.index(name)]})
+    def generate_compartment(self, name, time_points, init_compartments_state, parameters_values, randomizer=None,
+                             randomize_once=True, title='GeneratedData'):
+        result = self.generate(time_points, init_compartments_state, parameters_values,
+                               randomizer=randomizer, randomize_once=randomize_once)
+        return Data(title, time_points, **{name: result.compartments_values[self.compartments_names.index(name)]})
 
     def evaluate(self, results, y_observed, compartment='I'):
         y_predicted = results[self.compartments_names.index(compartment)]
